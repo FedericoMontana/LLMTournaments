@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "llmtournaments"
+version = "0.1.0"
+description = ""
+authors = ["Federico M."]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+ipykernel = "^6.29.5"
+python-dotenv = "^1.0.1"
+
+
+[tool.poetry.group.test]
+optional = true
+
+[tool.poetry.group.test.dependencies]
+abacusai = "^1.4.14"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
