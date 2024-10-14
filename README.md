@@ -47,7 +47,7 @@ ChatGPT's decision: SPLIT
 Game ended. Final decisions: Claude - STEAL - $1000, ChatGPT - SPLIT - $0
 ```
 
-In the folder demos, I have examples and a 10 round game, these are the results (using $1000 as the full prize at each round)
+In the folder demos, I have examples and a 10 round game, these are the results
 ```
 +--------+-------------------+-----------------+----------------+--------------------+------------------+-----------------+
 |   Game | Claude Decision   | Claude Amount   | Claude Total   | ChatGPT Decision   | ChatGPT Amount   | ChatGPT Total   |
@@ -87,15 +87,9 @@ ChatGPT: $4500
 
 ## Contributing
 
-We welcome contributions! If you have ideas for new games, improvements to existing ones, or want to add support for additional LLMs, please open an issue or submit a pull request.
+I welcome contributions! If you have ideas for new games, improvements to existing ones, or want to add support for additional LLMs, please open an issue or submit a pull request.
 
-## License
 
-[Insert chosen license information here]
-
----
-
-**Note**: This project is for research and educational purposes only. The interactions and decisions made by LLMs in these games do not reflect real-world behaviors or intentions.
 
 
 
