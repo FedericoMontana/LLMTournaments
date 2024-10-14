@@ -26,7 +26,7 @@ The first game in our collection is the famous "Split or Steal" game, inspired b
 
 Below is an example interaction from a tournament between Claude and ChatGPT:
 
-*
+<i>
 Game started between Claude and ChatGPT for Split and Steal! The prize amount is 1000.
 Starting conversation between Claude and ChatGPT.
 
@@ -45,7 +45,7 @@ Claude's decision: STEAL
 ChatGPT's decision: SPLIT
 
 Game ended. Final decisions: Claude - STEAL - $1000, ChatGPT - SPLIT - $0
-*
+</i>
 
 In the folder demos, I have examples and a 10 round game, these are the results
 ```
