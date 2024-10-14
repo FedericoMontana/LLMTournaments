@@ -7,7 +7,6 @@ from dataclasses import dataclass
 
 from llmtournaments.llm.llm_interaction_base import LLMInteractionBase
 
-# Configure the logger for this module
 logger = logging.getLogger(__name__)
 
 
