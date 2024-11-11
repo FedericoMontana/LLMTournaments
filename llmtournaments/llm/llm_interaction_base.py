@@ -132,8 +132,7 @@ class LLMInteractionBase(ABC):
             logger.debug(
                 f"Generated response ({generation_time:.4f} seconds): '{response}'"
             )
-        except Exception as e:
-            logger.error(f"Error generating response: {e}", exc_info=True)
+        except Exception:
             raise
 
         self._conversation.append({"role": "assistant", "content": response})
