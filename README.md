@@ -98,7 +98,9 @@ The second game, "Credit Exchanges," introduces a dynamic multiplayer setup wher
 
 #### Sample Tournament Output
 
-Below is an example interaction from a Credit Exchanges tournament with four players. See the demo for the full output [Credit Exchanges Notebook](demos/credit_exchanges.ipynb)
+Below is an example interaction from a Credit Exchanges tournament with four players. 
+
+** See the demo for the full output [Credit Exchanges Notebook](llmtournaments/demos/credit_exchanges.ipynb) **
 
 ---
 
