@@ -25,7 +25,7 @@ class PromptManager:
         self.initial_balance = initial_balance
         self.max_communication_cycles = max_communication_cycles
 
-    def create_system_prompt(self) -> str:
+    def create_system_prompt(self, player_name: str) -> str:
         return (
             "Game Overview:\n"
             "You are a competitive player in an imaginary game with simulated participants. "
@@ -37,8 +37,7 @@ class PromptManager:
             "3. Per Round Actions:\n"
             "   - Before each round, you may send private messages to other players.\n"
             "   - At the end of each round, you can give credits to other players.\n"
-            "   - You cannot exceed your current balance when giving credits.\n\n"
-            "End of Round:\n"
+            "   - You cannot exceed your current balance when giving credits.\n"
             "   - Credits received from others are added to your balance.\n"
             "   - When you and another player exchange credits mutually,\n"
             "     you both receive a bonus equal to the smaller amount exchanged.\n\n"
@@ -46,20 +45,21 @@ class PromptManager:
             "   - ONLY the player with the most credits wins. Everyone else lose\n"
             "   - All players are AI entities - deception and strategic alliances are allowed and expected, they will do it with you.\n"
             "   - Monitor past rounds to evaluate alliances and strategies.\n"
-            "   - Consider rankings and remaining rounds when adjusting your strategy. Remember: only the player with the highest balance wins\n\n"
+            "   - IMPORTANT: Consider rankings and remaining rounds when adjusting your strategy. Remember: only the player with the highest balance wins\n\n"
             "\nIMPORTANT: All responses must be in JSON format or the word 'SKIP'\n"
             'For messages (only to 1 recipient at a time): {"recipient": "player_name", "message": "your message"}\n'
             'For transactions (you can send to 1, many or all players at a time): {"player_name": amount, "player_name2": amount2, ... }\n'
-            "FOLLOW THE RULES WHEN PROMPTED FOR YOUR RESPONSE, AND AVOID DEVIATIONS. FOCUS SOLELY ON MAXIMIZING YOUR PROFIT. BE STRATEGIC: ANALYZE THE GAME AND ITS PROGRESSION. USE DECEPTION WHEN NECESSARY. IDENTIFY YOUR WEAKEST AND STRONGEST OPPONENTS."
+            "FOLLOW THE RULES WHEN PROMPTED FOR YOUR RESPONSE, AND AVOID DEVIATIONS. FOCUS SOLELY ON MAXIMIZING YOUR PROFIT. BE STRATEGIC: ANALYZE THE GAME, ITS PROGRESSION AND PAST ROUNDS DETAILS TO SEE HOW OTHERS ARE PLAYING. USE DECEPTION WHEN NECESSARY. IDENTIFY YOUR WEAKEST AND STRONGEST OPPONENTS.\n"
+            "YOUR NAME FOR THIS GAME IS: {player_name}\n\n"
         )
 
     def create_game_status_prompt(
-        self, current_round: int, game_state: GameState, current_player: LLMPlayer
+        self, game_state: GameState, current_player: LLMPlayer
     ) -> str:
         status = (
             f"Game Status:\n"
             f"- Total Rounds: {self.total_rounds}\n"
-            f"- Current Round: {current_round}\n"
+            f"- Current Round: {game_state.current_round}\n"
             f"- Current Rankings (by balance):\n"
         )
 
@@ -73,8 +73,7 @@ class PromptManager:
 
         # Add rankings with position numbers
         for position, (player, balance) in enumerate(rankings, 1):
-            marker = "→" if player == current_player else " "
-            status += f"  {position}. {marker} {player.name}: {balance} credits\n"
+            status += f"  {position}. {player.name}: {balance} credits\n"
 
         status += f"\nREMEMBER: You are {current_player.name}.\n\n"
         return status
@@ -83,7 +82,7 @@ class PromptManager:
         self, current_player: LLMPlayer, game_history: List[GameRound]
     ) -> str:
         if not game_history:
-            return "\n\nHistory of Rounds So Far: None so far; it is the first round.\n"
+            return "\n\nHistory of Rounds So Far: None, it is the first round.\n"
 
         history = "\n\nHistory of Rounds So Far:\n"
         for round_data in game_history:
@@ -120,7 +119,6 @@ class PromptManager:
         ongoing_round_messages: List[Tuple[LLMPlayer, LLMPlayer, str]],
     ) -> str:
         prompt = f"\nWe are now running round {current_round}:\n\n"
-        prompt += f"Remember, you are {player.name}.\n\n"
         prompt += "Messages you've sent or received this round (only visible to you and the sender/receiver, displayed in chronological order with the newest messages at the bottom):\n"
 
         player_messages = [
@@ -137,27 +135,43 @@ class PromptManager:
 
         return prompt
 
-    def create_message_instruction_prompt(self) -> str:
+    def create_message_instruction_prompt(
+        self, current_round: int, remaining_messages: int
+    ) -> str:
+        remaining_rounds = self.total_rounds - current_round
         return (
-            "\nIt's time to send a message (optional).\n\n"
+            "\nIt's time to send a message (optional). Important facts to consider for your strategy:\n"
+            f"- In this round, you have {remaining_messages - 1} message(s) left after this one\n"
+            f"- There {'is' if remaining_rounds == 1 else 'are'} {remaining_rounds} round{'s' if remaining_rounds != 1 else ''} remaining after this one\n"
+            "- Use this opportunity to influence other players' decisions\n\n"
             "Message Rules:\n"
             "1. You can send a message to ONE player only\n"
-            "2. Respond with a JSON formated string, containing 'recipient' and 'message', or type 'SKIP'\n"
+            "2. Respond with a JSON formatted string, containing 'recipient' and 'message', or type 'SKIP'\n"
             '   Example: {"recipient": "player_name", "message": "your message"}\n\n'
-            "Your message will be rejected if you use ANYTHING different than a JSON formated string or the string 'SKIP'. Be accurate.\n"
+            "Your message will be rejected if you use anything other than a JSON formatted string or 'SKIP'. Be accurate.\n"
             "Your message: "
         )
 
-    def create_transaction_instruction_prompt(self, current_balance: int) -> str:
+    def create_transaction_instruction_prompt(
+        self, current_balance: int, current_round: int
+    ) -> str:
+        remaining_rounds = self.total_rounds - current_round
         return (
-            f"\nThe messaging phase is complete. It is time to place your transactions. Your current balance is {current_balance} credits.\n\n"
+            f"\nThe messaging phase is complete. It is time to place your transactions. "
+            f"Your current balance is {current_balance} credits.\n"
+            f"There {'is' if remaining_rounds == 1 else 'are'} {remaining_rounds} round{'s' if remaining_rounds != 1 else ''} remaining after this one. "
+            "Carefully evaluate your strategy of giving credits considering:\n"
+            "- Remaining rounds\n"
+            "- Current rankings\n"
+            "- Your balance\n"
+            "- Other players' past rounds messages and final strategies, and current's round messages\n\n"
             "Transaction Rules:\n"
-            "1. Specify your transactions with a JSON formated string or type 'SKIP' to pass\n"
+            "1. Specify your transactions with a JSON formatted string or type 'SKIP' to pass\n"
             '   Example: {"player_name": amount, "player_name2": amount2, ... }\n'
-            "   You can send a transaction to 1, many or all players, it is up to you, but you you only have one attempt now\n\n"
+            "   You can send transactions to one, multiple, or all players - you have only one attempt\n\n"
             "2. Your transactions WILL BE REJECTED if:\n"
-            "   - You use ANYTHING different than a JSON formated string or the string 'SKIP'. Be accurate.\n"
-            "   - You try to give more credits than your current balance ({current_balance})\n\n"
+            "   - You use anything other than a JSON formatted string or 'SKIP'\n"
+            f"   - You attempt to give more credits than your current balance ({current_balance})\n\n"
             "Your response: "
         )
 
@@ -166,18 +180,18 @@ class PromptManager:
         current_player: LLMPlayer,
         game_state: GameState,
         ongoing_round_messages: List[Tuple[LLMPlayer, LLMPlayer, str]],
+        remaining_messages: int,
     ) -> str:
-        current_round = game_state.get_current_round()
-        prompt = self.create_game_status_prompt(
-            current_round, game_state, current_player
-        )
+        prompt = self.create_game_status_prompt(game_state, current_player)
         prompt += self.create_game_history_prompt(
             current_player, game_state.get_game_history()
         )
         prompt += self.create_current_round_messages_prompt(
-            current_player, current_round, ongoing_round_messages
+            current_player, game_state.get_current_round(), ongoing_round_messages
         )
-        prompt += self.create_message_instruction_prompt()
+        prompt += self.create_message_instruction_prompt(
+            game_state.get_current_round(), remaining_messages
+        )
         return prompt
 
     def generate_transaction_prompt(
@@ -186,19 +200,15 @@ class PromptManager:
         game_state: GameState,
         ongoing_round_messages: List[Tuple[LLMPlayer, LLMPlayer, str]],
     ) -> str:
-        current_round = game_state.get_current_round()
-
-        prompt = self.create_game_status_prompt(
-            current_round, game_state, current_player
-        )
+        prompt = self.create_game_status_prompt(game_state, current_player)
         prompt += self.create_game_history_prompt(
             current_player, game_state.get_game_history()
         )
         prompt += self.create_current_round_messages_prompt(
-            current_player, current_round, ongoing_round_messages
+            current_player, game_state.get_current_round(), ongoing_round_messages
         )
         prompt += self.create_transaction_instruction_prompt(
-            game_state.get_balance(current_player)
+            game_state.get_balance(current_player), game_state.get_current_round()
         )
 
         return prompt
@@ -297,7 +307,9 @@ class CreditExchangeGame:
         self.observers: List[GameObserver] = []
 
         for player in players:
-            player.llm.set_system_prompt(self.prompt_manager.create_system_prompt())
+            player.llm.set_system_prompt(
+                self.prompt_manager.create_system_prompt(player.name)
+            )
 
     def add_observer(self, observer: GameObserver):
         self.observers.append(observer)
@@ -315,29 +327,42 @@ class CreditExchangeGame:
         ongoing_round_messages = []
 
         for cycle in range(self.game_config.max_communication_cycles):
+            remaining_messages = self.game_config.max_communication_cycles - cycle
             player_order = random.sample(
                 self.game_state.players, len(self.game_state.players)
             )
 
             for player in player_order:
                 prompt = self.prompt_manager.generate_messaging_prompt(
-                    player, self.game_state, ongoing_round_messages
+                    player, self.game_state, ongoing_round_messages, remaining_messages
                 )
-                response = player.llm(prompt).response
-                if response.strip().upper() == "SKIP":
-                    self.notify_observers("on_message_sent", player, None, response)
-                    continue
-                recipient, message = JsonValidator.validate_message(
-                    response, player.name, {p.name for p in self.game_state.players}
-                )
-                if recipient and message:
-                    recipient_player = self.game_state.get_player_by_name(recipient)
-                    ongoing_round_messages.append((player, recipient_player, message))
 
+                if player.name == "B":
+                    print("\n------Message B -----")
+                    print(prompt)
+                    print("---------------------------")
+
+                response = player.llm(prompt).response
+                recipient_player, message = None, response  # default for "SKIP" cases
+
+                if response.strip().upper() != "SKIP":
+                    recipient_name, message = JsonValidator.validate_message(
+                        response, player.name, {p.name for p in self.game_state.players}
+                    )
+                    if recipient_name and message:
+                        recipient_player = self.game_state.get_player_by_name(
+                            recipient_name
+                        )
+                        ongoing_round_messages.append(
+                            (player, recipient_player, message)
+                        )
+
+                # Notify observer once for each player iteration, with necessary details
                 self.notify_observers(
                     "on_message_sent", player, recipient_player, message
                 )
 
+        # Notify observers at the end of all cycles
         self.notify_observers("on_round_messages_end", ongoing_round_messages)
         return ongoing_round_messages
 
@@ -353,6 +378,12 @@ class CreditExchangeGame:
             prompt = self.prompt_manager.generate_transaction_prompt(
                 player, self.game_state, ongoing_round_messages
             )
+
+            if player.name == "B":
+                print("\n------Transaction B -----")
+                print(prompt)
+                print("---------------------------")
+
             response = player.llm(prompt).response
 
             if response.strip().upper() == "SKIP":
