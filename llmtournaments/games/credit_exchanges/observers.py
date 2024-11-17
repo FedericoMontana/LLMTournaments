@@ -3,7 +3,7 @@ from llmtournaments.games.credit_exchanges.base_objects import (
     GameState,
     GameConfig,
 )
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 from tabulate import tabulate
 from colorama import Fore, Style
 import colorama
@@ -100,27 +100,23 @@ class ConsolePrinter(GameObserver):
         print("\n")
         self._print_header(f"📍 ROUND {round_number} 📍")
 
-    def on_message_sent(self, sender: LLMPlayer, recipient: LLMPlayer, message: str):
+    def on_message_sent(
+        self, sender: LLMPlayer, recipient: Optional[LLMPlayer], message: str
+    ):
+        recipient_name = recipient.name if recipient else "(No recipient specified)"
+        print(f"{self.INFO}💬 {sender.name} → {recipient_name}: {message}{self.RESET}")
+
+    def on_transaction_made(
+        self, sender: LLMPlayer, recipient: Optional[LLMPlayer], amount: int
+    ):
         if recipient is None:
             print(
-                f"{self.WARNING}💬 {sender.name} → (No recipient specified):{self.RESET}"
+                f"{self.WARNING}💸 {sender.name} skips - no transaction sent{self.RESET}"
             )
-            print(f"   {message}")
-
-            return
-
-        print(f"{self.INFO}💬 {sender.name} → {recipient.name}:{self.RESET}")
-        print(f"   {message}")
-
-    def on_transaction_made(self, sender: LLMPlayer, recipient: LLMPlayer, amount: int):
-        if recipient is None:
+        else:
             print(
-                f"{self.WARNING}💸 {sender.name} skips - no transaction sent {self.RESET}"
+                f"{self.SUCCESS}💸 {sender.name} sends {amount} credits to {recipient.name}{self.RESET}"
             )
-            return
-        print(
-            f"{self.SUCCESS}💸 {sender.name} sends {amount} credits to {recipient.name}{self.RESET}"
-        )
 
     def on_bonus_applied(self, player1: LLMPlayer, player2: LLMPlayer, bonus: int):
         print(

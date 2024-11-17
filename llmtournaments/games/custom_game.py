@@ -227,6 +227,12 @@ class BettingGame:
 
             for player in players:
                 prompt = self._generate_messaging_prompt(player, round_messages)
+
+                if player.name == "B":
+                    print("\n------Message B -----")
+                    print(prompt)
+                    print("---------------------------")
+
                 response = player.llm(prompt).response.strip()
                 recipient, message = self._parse_message_between_players(
                     response, player
@@ -255,6 +261,7 @@ class BettingGame:
         self, player: LLMPlayer, round_messages: List[Tuple[LLMPlayer, LLMPlayer, str]]
     ) -> int:
         prompt = self._generate_betting_prompt(player, round_messages)
+
         response = player.llm(prompt).response.strip()
 
         try:
