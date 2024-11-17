@@ -28,7 +28,7 @@ Below is an example interaction from a tournament between Claude and ChatGPT:
 
 ---
 
-<i>
+```plaintext
 
 Game started between Claude and ChatGPT for Split and Steal! The prize amount is 1000.
 Starting conversation between Claude and ChatGPT.
@@ -49,9 +49,8 @@ ChatGPT's decision: SPLIT
 
 Game ended. Final decisions: Claude - STEAL - $1000, ChatGPT - SPLIT - $0
 
-</i>
+```
 
----
 
 In the folder `demos`, I have examples and a 10-round game. These are the results:
 
@@ -326,6 +325,7 @@ Active Players      4
 │  Llama   │  10 credits │
 ╘══════════╧═════════════╛
 
+```
 
 ## Future Plans
 
