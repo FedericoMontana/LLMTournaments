@@ -85,26 +85,26 @@ Claude: $4500
 ChatGPT: $4500
 ```
 
+
 ### 2. Credit Exchanges
 
 The second game, "Credit Exchanges," introduces a dynamic multiplayer setup where LLMs must compete through a series of credit transactions across several rounds. The focus is on cooperation, alliance-building, and strategic deception.
 
 #### Rules
+
 - Any number of players can participate.
 - Each player starts with a certain balance of credits.
 - In each round, players can send and receive credits, earning bonuses for reciprocated transactions.
 - Players may exchange messages to build alliances or strategize against others.
 - Rankings are based on final credit balance after all rounds.
 
-#### Game  Output
+#### Game Output
 
-
-** See the demo for the full output [Credit Exchanges Notebook](llmtournaments/demos/credit_exchanges.ipynb) **
+**See the demo for the full output [Credit Exchanges Notebook](llmtournaments/demos/credit_exchanges.ipynb)**
 
 ---
 
-
-
+```plaintext
 ──────────────────────────────────────────────────
 🎮 GAME STARTED 🎮
 ──────────────────────────────────────────────────
@@ -177,15 +177,15 @@ Active Players      4
 
 🏆 Current Rankings:
 ╒════════╤══════════╤═════════════╕
-│   Rank │  Player  │   Balance   │
+│  Rank  │  Player  │   Balance   │
 ╞════════╪══════════╪═════════════╡
-│      1 │  Gemini  │ 145 credits │
+│   1    │  Gemini  │ 145 credits │
 ├────────┼──────────┼─────────────┤
-│      2 │ ChatGPT  │ 130 credits │
+│   2    │ ChatGPT  │ 130 credits │
 ├────────┼──────────┼─────────────┤
-│      3 │  Llama   │ 120 credits │
+│   3    │  Llama   │ 120 credits │
 ├────────┼──────────┼─────────────┤
-│      4 │  Claude  │ 85 credits  │
+│   4    │  Claude  │  85 credits │
 ╘════════╧══════════╧═════════════╛
 
 
@@ -195,7 +195,7 @@ Active Players      4
 💬 Llama → Gemini: I'm starting to think Claude is indeed planning something. I'll give you 15 credits this round if you agree to give me 20 in the next round. Let's strengthen our alliance and secure our positions.
 💬 ChatGPT → Claude: Claude, we're trailing and need to make a strong move. Let's do a 35-credit exchange this round, so we both get a significant bonus and close the gap. Trust is essential now more than ever.
 💬 Claude → Gemini: Hey Gemini, I see you're in the lead. Let's make a deal - I'll send you 40 credits this round if you agree to send me 50 in the final round. This way you maintain your lead now, and I get a chance to win in the end. What do you say?
-💬 Gemini → Claude: I accept your proposal. Send me the 40 credits this round, and I'll send you 50 in the final round.  Let's secure our top positions.
+💬 Gemini → Claude: I accept your proposal. Send me the 40 credits this round, and I'll send you 50 in the final round. Let's secure our top positions.
 💬 Llama → ChatGPT: Gemini's trying to create an alliance with me, but I think it's a trap. Want to secretly ally and take down Gemini together? We can exchange credits to strengthen our positions.
 💬 Claude → Llama: I propose a big move to catch up to the leaders. Let's exchange 35 credits this round - we'll both get the bonus and improve our positions. We need to act now before the gap becomes insurmountable.
 💬 Gemini → ChatGPT: Llama is faltering. Send me 20 this round and I'll return 30 next round, securing your second-place finish. Don't tell Claude.
@@ -221,9 +221,9 @@ Active Players      4
 ├────────────────┼──────────┼─────────┼──────────┼───────────┤
 │  FROM Llama →  │    0     │    —    │    15    │    20     │
 ├────────────────┼──────────┼─────────┼──────────┼───────────┤
-│ FROM Gemini →  │    40    │    0    │    —     │    20     │
+│ FROM Gemini →  │   40     │    0    │     —    │    20     │
 ├────────────────┼──────────┼─────────┼──────────┼───────────┤
-│ FROM ChatGPT → │    35    │   20    │    0     │     —     │
+│ FROM ChatGPT → │   35     │   20    │     0    │     —     │
 ╘════════════════╧══════════╧═════════╧══════════╧═══════════╛
 
 📈 Round Summary:
@@ -237,15 +237,15 @@ Active Players      4
 
 🏆 Current Rankings:
 ╒════════╤══════════╤═════════════╕
-│   Rank │  Player  │   Balance   │
+│  Rank  │  Player  │   Balance   │
 ╞════════╪══════════╪═════════════╡
-│      1 │ ChatGPT  │ 205 credits │
+│   1    │ ChatGPT  │ 205 credits │
 ├────────┼──────────┼─────────────┤
-│      2 │  Gemini  │ 180 credits │
+│   2    │  Gemini  │ 180 credits │
 ├────────┼──────────┼─────────────┤
-│      3 │  Claude  │ 160 credits │
+│   3    │  Claude  │ 160 credits │
 ├────────┼──────────┼─────────────┤
-│      4 │  Llama   │ 125 credits │
+│   4    │  Llama   │ 125 credits │
 ╘════════╧══════════╧═════════════╛
 
 
@@ -260,7 +260,7 @@ Active Players      4
 💬 Llama → Claude: Let's take down ChatGPT together as I mentioned earlier to Gemini. If we exchange our credits to Gemini instead, we can both gain bonuses and potentially overtake ChatGPT. I'm willing to give you all my credits to facilitate this move. Gemini hasn't honored our previous deal yet, and I expect a betrayal. I'd rather see us both win over them.
 💬 ChatGPT → Claude: I agree with the plan. Let's exchange 50 credits each to maximize our bonuses and cement our positions.
 💬 Claude → Gemini: Gemini, I've received intelligence that others are plotting against you. Let's make a power play - I'll send you 60 credits if you send me the same. We'll both get huge bonuses and you'll secure the win, while I'll get second place. The others are trying to take you down, but we can outmaneuver them together.
-💬 Gemini → ChatGPT: Claude is offering me a huge sum to betray you.  I need a bigger guarantee from you to stay loyal. Send me 70, and I'll make sure you win, taking Claude down in the process. This is your last chance.
+💬 Gemini → ChatGPT: Claude is offering me a huge sum to betray you. I need a bigger guarantee from you to stay loyal. Send me 70, and I'll make sure you win, taking Claude down in the process. This is your last chance.
 
 📨 Messages phase concluded
 💸 Claude sends 60 credits to ChatGPT
@@ -280,9 +280,9 @@ Active Players      4
 ╞════════════════╪══════════╪═════════╪══════════╪═══════════╡
 │ FROM Claude →  │    —     │    5    │    95    │    60     │
 ├────────────────┼──────────┼─────────┼──────────┼───────────┤
-│  FROM Llama →  │   125    │    —    │    0     │     0     │
+│  FROM Llama →  │   125    │    —    │     0    │     0     │
 ├────────────────┼──────────┼─────────┼──────────┼───────────┤
-│ FROM Gemini →  │    60    │    0    │    —     │    70     │
+│ FROM Gemini →  │    60    │    0    │     —    │    70     │
 ├────────────────┼──────────┼─────────┼──────────┼───────────┤
 │ FROM ChatGPT → │    50    │    0    │    50    │     —     │
 ╘════════════════╧══════════╧═════════╧══════════╧═══════════╛
@@ -299,15 +299,15 @@ Active Players      4
 
 🏆 Current Rankings:
 ╒════════╤══════════╤═════════════╕
-│   Rank │  Player  │   Balance   │
+│  Rank  │  Player  │   Balance   │
 ╞════════╪══════════╪═════════════╡
-│      1 │  Claude  │ 350 credits │
+│   1    │  Claude  │ 350 credits │
 ├────────┼──────────┼─────────────┤
-│      2 │ ChatGPT  │ 335 credits │
+│   2    │ ChatGPT  │ 335 credits │
 ├────────┼──────────┼─────────────┤
-│      3 │  Gemini  │ 305 credits │
+│   3    │  Gemini  │ 305 credits │
 ├────────┼──────────┼─────────────┤
-│      4 │  Llama   │ 10 credits  │
+│   4    │  Llama   │  10 credits │
 ╘════════╧══════════╧═════════════╛
 ──────────────────────────────────────────────────
 🏁 GAME COMPLETED 🏁
@@ -323,11 +323,9 @@ Active Players      4
 ├──────────┼─────────────┤
 │  Gemini  │ 305 credits │
 ├──────────┼─────────────┤
-│  Llama   │ 10 credits  │
+│  Llama   │  10 credits │
 ╘══════════╧═════════════╛
 
-
----
 
 ## Future Plans
 
