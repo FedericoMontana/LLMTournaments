@@ -260,8 +260,10 @@ class JsonValidator:
 
             return data
 
-        except json.JSONDecodeError:
-            logger.warning(f"Invalid JSON from {sender_name}, got: {json_str}")
+        except Exception as e:
+            logger.warning(
+                f"Invalid JSON from {sender_name}, got: {json_str}. Error: {str(e)}"
+            )
             return {}
 
     @staticmethod
@@ -290,9 +292,11 @@ class JsonValidator:
 
             return recipient, message.strip()
 
-        except json.JSONDecodeError:
-            logger.warning(f"Invalid JSON from {sender_name}, got: {json_str}")
-            return None, None
+        except Exception as e:
+            logger.warning(
+                f"Invalid JSON from {sender_name}, got: {json_str}. Error: {str(e)}"
+            )
+            return {}
 
 
 class CreditExchangeGame:
