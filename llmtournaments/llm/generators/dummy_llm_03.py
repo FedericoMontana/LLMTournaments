@@ -1,5 +1,5 @@
 import random
-from typing import Optional
+from typing import Optional, List
 from llmtournaments.llm.llm_interaction_base import LLMInteractionBase, LLMResponse
 import json
 
@@ -12,7 +12,7 @@ class DummyLLMInteractionForCreditExchanges(LLMInteractionBase):
     def __init__(
         self,
         player_name: str,
-        other_players: list,
+        other_players: List[str],
         initial_balance: int,
         system_prompt: Optional[str] = None,
         max_exchanges: Optional[int] = None,
@@ -22,7 +22,7 @@ class DummyLLMInteractionForCreditExchanges(LLMInteractionBase):
 
         Args:
             player_name (str): The name of this player.
-            other_players (list): List of names of other players in the game.
+            other_players (List[str]): List of names of other players in the game.
             initial_balance (int): Initial balance of the player.
             system_prompt (Optional[str]): The initial system prompt.
             max_exchanges (Optional[int]): The maximum number of conversation turns to keep in history.
@@ -51,23 +51,26 @@ class DummyLLMInteractionForCreditExchanges(LLMInteractionBase):
 
     def _generate_message_response(self) -> str:
         """
-        Generates a random message response to send to another player.
+        Generates a random message response to send to one or more other players.
 
         Returns:
-            str: A JSON formatted string with a recipient and message.
+            str: A JSON formatted string with recipients and a message.
         """
         if random.random() < 0.1:  # 10% chance to skip sending a message
             return "SKIP"
-        recipient = random.choice(self.other_players)
+
+        num_recipients = random.randint(1, len(self.other_players))
+        recipients = random.sample(self.other_players, num_recipients)
         message = random.choice(
             [
                 "Let's collaborate this round.",
                 "How about a truce?",
                 "Watch out for the big moves!",
                 "Let's maximize our profits together!",
+                "Thinking of forming an alliance?",
             ]
         )
-        return json.dumps({"recipient": recipient, "message": message})
+        return json.dumps({"recipients": recipients, "message": message})
 
     def _generate_transaction_response(self) -> str:
         """
@@ -77,17 +80,23 @@ class DummyLLMInteractionForCreditExchanges(LLMInteractionBase):
         Returns:
             str: A JSON formatted string with transactions to other players.
         """
+        available_players = list(self.other_players)
+        random.shuffle(available_players)
+
         transactions = {}
-        for _ in range(random.randint(1, len(self.other_players))):
-            recipient = random.choice(self.other_players)
-            # Calculate the maximum amount that can be sent without exceeding the remaining balance
-            max_amount = min(
-                self.balance - sum(transactions.values()), 10
-            )  # Cap each transaction at 10 or remaining balance
-            if max_amount <= 0:
-                break  # Exit if no balance is left for transactions
-            amount = random.randint(1, max_amount)
-            transactions[recipient] = amount
+        remaining_balance = self.balance
+
+        for recipient in available_players:
+            if remaining_balance <= 0:
+                break
+
+            max_amount = min(remaining_balance, 15)  # Cap each transaction
+            if (
+                max_amount > 0 and random.random() < 0.6
+            ):  # 60% chance to send a transaction
+                amount = random.randint(1, max_amount)
+                transactions[recipient] = amount
+                remaining_balance -= amount
 
         return json.dumps(transactions) if transactions else "SKIP"
 

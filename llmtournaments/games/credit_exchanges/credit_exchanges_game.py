@@ -70,14 +70,13 @@ class CreditExchangeGame(Observable):
 
     def _validate_and_format_payload(
         self, raw_text: str, sender: LLMPlayer, payload_type: str
-    ) -> Union[Dict[LLMPlayer, int], Tuple[LLMPlayer, str]]:
+    ) -> Union[Dict[LLMPlayer, int], Tuple[List[LLMPlayer], str]]:
         """
-        1) Parses the JSON from raw_text.
-        2) Validates the data for either "message" or "transaction".
-        3) Returns the validated payload.
+        Parses JSON from raw_text and validates the data for either "message" or "transaction".
+        Returns the validated payload.
 
-        For "message": returns (recipient_player, message_text).
-        - Recipients must exist, not be the sender, and message must be non-empty.
+        For "message": returns (recipient_players, message_text).
+        - Recipients must exist, not include the sender, and message must be non-empty.
 
         For "transaction": returns {recipient_player: amount, ...}.
         - Recipients must exist, not be the sender, and amounts must be non-negative.
@@ -85,41 +84,63 @@ class CreditExchangeGame(Observable):
         Raises ValueError on any invalid JSON or violation of game rules.
         """
 
-        def _validate_and_get_recipient_player(
-            recipient_name: str, sender_player: LLMPlayer
-        ) -> LLMPlayer:
-            recipient_player = self.game_state.get_player_by_name(recipient_name)
-            if not recipient_player:
-                raise ValueError(f"Recipient does not exist: {recipient_name}")
-            if recipient_player == sender_player:
-                raise ValueError("Player trying to interact with itself")
-            return recipient_player
-
-        data = clean_and_load_json(raw_text)
+        try:
+            data = clean_and_load_json(raw_text)
+        except ValueError:
+            raise  # Re-raise the JSON parsing error
 
         if payload_type == "message":
-            recipient_name = data.get("recipient")
-            message_value = data.get("message")
+            if not isinstance(data, dict):
+                raise ValueError("Message payload must be a JSON object.")
+            if "recipients" not in data:
+                raise ValueError("Message payload missing 'recipients' key.")
+            if "message" not in data:
+                raise ValueError("Message payload missing 'message' key.")
 
-            recipient_player = _validate_and_get_recipient_player(
-                recipient_name, sender
-            )
-            if not message_value.strip():
+            recipient_names = data["recipients"]
+            message_value = data["message"]
+
+            if not isinstance(recipient_names, list):
+                raise ValueError("'recipients' must be a list of player names.")
+            if not recipient_names:
+                raise ValueError("'recipients' list cannot be empty.")
+            if not isinstance(message_value, str) or not message_value.strip():
                 raise ValueError("Message cannot be empty.")
 
-            return (recipient_player, message_value.strip())
+            if sender.name in recipient_names:
+                raise ValueError("Cannot send a message to yourself.")
+
+            if len(recipient_names) != len(set(recipient_names)):
+                seen = set()
+                duplicates = {
+                    name for name in recipient_names if name in seen or seen.add(name)
+                }
+                raise ValueError(f"Duplicate recipients found: {', '.join(duplicates)}")
+
+            recipient_players = []
+            for recipient_name in recipient_names:
+                recipient_player = self.game_state.get_player_by_name(recipient_name)
+                if not recipient_player:
+                    raise ValueError(f"Recipient does not exist: {recipient_name}")
+                recipient_players.append(recipient_player)
+
+            return recipient_players, message_value.strip()
 
         elif payload_type == "transaction":
+            if not isinstance(data, dict):
+                raise ValueError("Transaction payload must be a JSON object.")
+
             validated_tx: Dict[LLMPlayer, int] = {}
             for recipient_name, amount in data.items():
-                recipient_player = _validate_and_get_recipient_player(
-                    recipient_name, sender
-                )
+                recipient_player = self.game_state.get_player_by_name(recipient_name)
+                if not recipient_player:
+                    raise ValueError(f"Recipient does not exist: {recipient_name}")
+                if recipient_player == sender:
+                    raise ValueError("Cannot send a transaction to yourself.")
                 if not isinstance(amount, int) or amount < 0:
                     raise ValueError(
                         f"Invalid transaction amount for {recipient_name}: {amount}"
                     )
-
                 validated_tx[recipient_player] = amount
 
             return validated_tx
@@ -130,7 +151,7 @@ class CreditExchangeGame(Observable):
     # --------------------------------------------------------------------------
     # Messaging Phase
     # --------------------------------------------------------------------------
-    def _conduct_messaging_phase(self) -> List[Tuple[LLMPlayer, LLMPlayer, str]]:
+    def _conduct_messaging_phase(self) -> List[Tuple[LLMPlayer, List[LLMPlayer], str]]:
         ongoing_round_messages = []
 
         for cycle in range(self.game_config.max_communication_cycles):
@@ -144,28 +165,22 @@ class CreditExchangeGame(Observable):
                     player, self.game_state, ongoing_round_messages, remaining_messages
                 )
 
-                # Debug print for Player B
-                # if player.name == "B":
-                #     print("\n------Message B -----")
-                #     print(prompt)
-                #     print("---------------------------")
-
                 response_text = player.llm(prompt).response.strip()
 
                 if response_text.upper() == "SKIP":
                     # No message
-                    self.notify_observers("on_message_sent", player, None, None)
+                    self.notify_observers("on_message_sent", player, [], None)
                     continue
 
                 try:
-                    recipient_player, message_text = self._validate_and_format_payload(
+                    recipient_players, message_text = self._validate_and_format_payload(
                         response_text, player, "message"
                     )
                     ongoing_round_messages.append(
-                        (player, recipient_player, message_text)
+                        (player, recipient_players, message_text)
                     )
                     self.notify_observers(
-                        "on_message_sent", player, recipient_player, message_text
+                        "on_message_sent", player, recipient_players, message_text
                     )
 
                 except ValueError as e:
@@ -181,7 +196,7 @@ class CreditExchangeGame(Observable):
     # Transaction Phase
     # --------------------------------------------------------------------------
     def _conduct_transaction_phase(
-        self, ongoing_round_messages: List[Tuple[LLMPlayer, LLMPlayer, str]]
+        self, ongoing_round_messages: List[Tuple[LLMPlayer, List[LLMPlayer], str]]
     ) -> Dict[LLMPlayer, Dict[LLMPlayer, int]]:
         transactions = {}
 
@@ -192,10 +207,6 @@ class CreditExchangeGame(Observable):
             prompt = self.prompt_manager.generate_transaction_prompt(
                 player, self.game_state, ongoing_round_messages
             )
-            # if player.name == "B":
-            #     print("\n------Transaction B -----")
-            #     print(prompt)
-            #     print("---------------------------")
 
             response_text = player.llm(prompt).response.strip()
 

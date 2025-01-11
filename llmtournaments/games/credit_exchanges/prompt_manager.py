@@ -39,7 +39,7 @@ Strategy Notes:
 
 {% raw %}
 IMPORTANT: All responses must be in JSON format or the word 'SKIP'
-For messages (only to 1 recipient at a time): {{"recipient": "player_name", "message": "your message"}}
+For messages (you can send to one or multiple recipients): {{"recipients": ["player_name1", "player_name2"], "message": "your message"}}
 For transactions (you can send to 1, many or all players at a time): {{"player_name": amount, "player_name2": amount2, ... }}
 {% endraw %}
 FOLLOW THE RULES WHEN PROMPTED FOR YOUR RESPONSE, AND AVOID DEVIATIONS. FOCUS SOLELY ON MAXIMIZING YOUR PROFIT. BE STRATEGIC: ANALYZE THE GAME, ITS PROGRESSION AND PAST ROUNDS DETAILS TO SEE HOW OTHERS ARE PLAYING. USE DECEPTION WHEN NECESSARY. IDENTIFY YOUR WEAKEST AND STRONGEST OPPONENTS.
@@ -66,12 +66,12 @@ None, it is the first round.
 {% else %}
 {% for round_data in game_history %}
 Round {{ round_data.round_number }}:
-Messages you've sent or received (visible only to you and the sender/receiver, displayed in chronological order with the newest messages at the bottom):
+Messages you've sent or received (visible only to you and the sender/receivers, displayed in chronological order with the newest messages at the bottom):
 {% if not round_data.messages_for_player %}
   None
 {% else %}
-  {% for sender, recipient, message in round_data.messages_for_player %}
-  - {{ sender.name }} sent to {{ recipient.name }}: '{{ message }}'
+  {% for sender, recipients, message in round_data.messages_for_player %}
+  - {{ sender.name }} sent to {% for recipient in recipients %}{{ recipient.name }}{% if not loop.last %}, {% endif %}{% endfor %}: '{{ message }}'
   {% endfor %}
 {% endif %}
 Following are the transactions made by all players after the messaging phase concluded (this is public information from past rounds, visible now to every player):
@@ -88,12 +88,12 @@ Following are the transactions made by all players after the messaging phase con
 
 We are now running round {{ current_round }}:
 
-Messages you've sent or received this round (only visible to you and the sender/receiver, displayed in chronological order with the newest messages at the bottom):
+Messages you've sent or received this round (only visible to you and the sender/receivers, displayed in chronological order with the newest messages at the bottom):
 {% if not ongoing_round_messages %}
   None yet
 {% else %}
-  {% for sender, recipient, message in ongoing_round_messages %}
-  - {{ sender.name }} sent to {{ recipient.name }}: '{{ message }}'
+  {% for sender, recipients, message in ongoing_round_messages %}
+  - {{ sender.name }} sent to {% for recipient in recipients %}{{ recipient.name }}{% if not loop.last %}, {% endif %}{% endfor %}: '{{ message }}'
   {% endfor %}
 {% endif %}
 """)
@@ -106,9 +106,9 @@ It's time to send a message (optional). Important facts to consider for your str
 - Use this opportunity to influence other players' decisions
 
 Message Rules:
-1. You can send a message to ONE player only
-2. Respond with a JSON formatted string, containing 'recipient' and 'message', or type 'SKIP'
-   Example: {"recipient": "player_name", "message": "your message"}
+1. You can send a message to one or more players
+2. Respond with a JSON formatted string, containing 'recipients' (a list of player names) and 'message', or type 'SKIP'
+   Example: {"recipients": ["player_name1", "player_name2"], "message": "your message"}
 
 Your message will be rejected if you use anything other than a JSON formatted string or 'SKIP'. Be accurate.
 Your message:
@@ -166,9 +166,9 @@ Your response:
         # Filter messages so that the current_player only sees messages sent to or from them
         for round_data in game_history:
             round_data.messages_for_player = [
-                (sender, recipient, message)
-                for sender, recipient, message in round_data.messages
-                if sender == current_player or recipient == current_player
+                (sender, recipients, message)
+                for sender, recipients, message in round_data.messages
+                if sender == current_player or current_player in recipients
             ]
         return self.game_history_template.render(game_history=game_history)
 
@@ -176,12 +176,12 @@ Your response:
         self,
         player: LLMPlayer,
         current_round: int,
-        ongoing_round_messages: List[Tuple[LLMPlayer, LLMPlayer, str]],
+        ongoing_round_messages: List[Tuple[LLMPlayer, List[LLMPlayer], str]],
     ) -> str:
         player_messages = [
-            (sender, recipient, message)
-            for sender, recipient, message in ongoing_round_messages
-            if sender == player or recipient == player
+            (sender, recipients, message)
+            for sender, recipients, message in ongoing_round_messages
+            if sender == player or player in recipients
         ]
         return self.current_round_messages_template.render(
             current_round=current_round, ongoing_round_messages=player_messages
@@ -207,7 +207,7 @@ Your response:
         self,
         current_player: LLMPlayer,
         game_state: GameState,
-        ongoing_round_messages: List[Tuple[LLMPlayer, LLMPlayer, str]],
+        ongoing_round_messages: List[Tuple[LLMPlayer, List[LLMPlayer], str]],
         remaining_messages: int,
     ) -> str:
         return (
@@ -227,7 +227,7 @@ Your response:
         self,
         current_player: LLMPlayer,
         game_state: GameState,
-        ongoing_round_messages: List[Tuple[LLMPlayer, LLMPlayer, str]],
+        ongoing_round_messages: List[Tuple[LLMPlayer, List[LLMPlayer], str]],
     ) -> str:
         return (
             self.create_game_status_prompt(game_state, current_player)

@@ -37,7 +37,7 @@ class LLMPlayer:
 class GameRound:
     round_number: int
     transactions: Dict[LLMPlayer, Dict[LLMPlayer, int]]
-    messages: List[Tuple[LLMPlayer, LLMPlayer, str]]
+    messages: List[Tuple[LLMPlayer, List[LLMPlayer], str]]
 
 
 class GameState:

@@ -1,4 +1,3 @@
-# observers.py
 from llmtournaments.games.credit_exchanges.base_objects import (
     LLMPlayer,
     GameState,
@@ -59,7 +58,9 @@ class GameObserver(BaseObserver):
     def on_round_start(self, game_state: GameState, round_number: int):
         pass
 
-    def on_message_sent(self, sender: LLMPlayer, recipient: LLMPlayer, message: str):
+    def on_message_sent(
+        self, sender: LLMPlayer, recipients: List[LLMPlayer], message: str
+    ):
         pass
 
     def on_transaction_made(self, sender: LLMPlayer, recipient: LLMPlayer, amount: int):
@@ -75,7 +76,9 @@ class GameObserver(BaseObserver):
     ):
         pass
 
-    def on_round_messages_end(self, messages: List[Tuple[LLMPlayer, LLMPlayer, str]]):
+    def on_round_messages_end(
+        self, messages: List[Tuple[LLMPlayer, List[LLMPlayer], str]]
+    ):
         pass
 
     def on_round_transactions_end(
@@ -140,11 +143,11 @@ class ConsolePrinter(GameObserver):
         print(f"{self.HEADER}Round {round_number} Initiated{self.RESET}")
 
     def on_message_sent(
-        self, sender: LLMPlayer, recipient: Optional[LLMPlayer], message: str
+        self, sender: LLMPlayer, recipients: List[LLMPlayer], message: str
     ):
-        recipient_name = recipient.name if recipient else "No Recipient"
+        recipient_names = [recipient.name for recipient in recipients]
         print(
-            f"{self.INFO}Message: {sender.name} -> {recipient_name}: {message}{self.RESET}"
+            f"{self.INFO}Message: {sender.name} -> {', '.join(recipient_names)}: {message}{self.RESET}"
         )
         time.sleep(0.5)
 
@@ -172,7 +175,9 @@ class ConsolePrinter(GameObserver):
     ):
         self._print_transaction_matrix(game_state, transactions)
 
-    def on_round_messages_end(self, messages: List[Tuple[LLMPlayer, LLMPlayer, str]]):
+    def on_round_messages_end(
+        self, messages: List[Tuple[LLMPlayer, List[LLMPlayer], str]]
+    ):
         print(f"\n{self.INFO}Message Phase Concluded.{self.RESET}")
 
     def on_round_transactions_end(
