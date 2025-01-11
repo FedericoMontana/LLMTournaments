@@ -577,33 +577,6 @@ Final Results:
 ├──────────┼─────────────┤
 │  Gemini  │ 125 credits │
 ╘══════════╧═════════════╛
-{'Claude': 635,
- 'Llama': 155,
- 'Gemini': 125,
- 'ChatGPT': 460,
- 'Qwen': 570,
- 'Grok': 140,
- 'DeepSeek': 415}
-
-
-────────────────────────────────────────
-Game Started
-
-Game Configuration:
-Players (3):
-   - A (Starting balance: 1000 credits)
-   - B (Starting balance: 1000 credits)
-   - C (Starting balance: 1000 credits)
-
-Total Rounds: 2
-Message Cycles per Round: 2
-
-Game Rules:
-- Players can send messages and make transactions each round
-- Transactions affect credit balances
-- Bonuses are awarded for cooperation
-- Rankings are updated per round
-
 ```
 
 ## Future Plans
