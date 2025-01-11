@@ -8,16 +8,59 @@ from tabulate import tabulate
 from colorama import Fore, Style
 import colorama
 import time
+from abc import ABC, abstractmethod
 
 
-class GameObserver:
+class BaseObserver(ABC):
+    """Abstract base class for all game observers"""
+
+    @abstractmethod
+    def update(self, event_type: str, *args, **kwargs):
+        """Main update method that all observers must implement"""
+        pass
+
+
+class Observable:
+    """Mixin class to provide observer functionality"""
+
+    def __init__(self):
+        self._observers = []
+
+    def add_observer(self, observer: BaseObserver):
+        if observer not in self._observers:
+            self._observers.append(observer)
+
+    def remove_observer(self, observer: BaseObserver):
+        if observer in self._observers:
+            self._observers.remove(observer)
+
+    def notify_observers(self, event_type: str, *args, **kwargs):
+        for observer in self._observers:
+            observer.update(event_type, *args, **kwargs)
+
+
+class GameObserver(BaseObserver):
+    """Concrete implementation of game observer with default behaviors"""
+
+    def update(self, event_type: str, *args, **kwargs):
+        """Routes events to appropriate handler methods"""
+        handler = getattr(self, f"{event_type}", None)
+        if handler and callable(handler):
+            handler(*args, **kwargs)
+        else:
+            raise ValueError(
+                f"No handler found for event type '{event_type}' in {self.__class__.__name__}"
+            )
+
     def on_game_start(self, game_config: GameConfig, game_state: GameState):
         pass
 
     def on_round_start(self, game_state: GameState, round_number: int):
         pass
 
-    def on_message_sent(self, sender: LLMPlayer, recipient: LLMPlayer, message: str):
+    def on_message_sent(
+        self, sender: LLMPlayer, recipients: List[LLMPlayer], message: str
+    ):
         pass
 
     def on_transaction_made(self, sender: LLMPlayer, recipient: LLMPlayer, amount: int):
@@ -33,7 +76,9 @@ class GameObserver:
     ):
         pass
 
-    def on_round_messages_end(self, messages: List[Tuple[LLMPlayer, LLMPlayer, str]]):
+    def on_round_messages_end(
+        self, messages: List[Tuple[LLMPlayer, List[LLMPlayer], str]]
+    ):
         pass
 
     def on_round_transactions_end(
@@ -58,70 +103,69 @@ class ConsolePrinter(GameObserver):
         self.WARNING = Fore.YELLOW
         self.IMPORTANT = f"{Fore.MAGENTA}{Style.BRIGHT}"
 
-    def _print_separator(self, char="─", length=50):
+    def _print_separator(self, char="─", length=40):
         print(f"{self.INFO}{char * length}{self.RESET}")
 
     def _print_header(self, text: str):
         self._print_separator()
         print(f"{self.HEADER}{text}{self.RESET}")
-        self._print_separator()
 
     def on_game_start(self, game_config: GameConfig, game_state: GameState):
-        print("\n" * 2)
-        self._print_header("🎮 GAME STARTED 🎮")
+        print("\n")
+        self._print_header("Game Started")
 
-        # Display game configuration
-        print(f"\n{self.HEADER}📋 Game Configuration:{self.RESET}")
+        print(f"\n{self.HEADER}Game Configuration:{self.RESET}")
         print(f"{self.INFO}Players ({len(game_state.players)}):{self.RESET}")
         for player in game_state.players:
             print(
-                f"   • {player.name} (Starting balance: {game_state.get_balance(player)} credits)"
+                f"   - {player.name} (Starting balance: {game_state.get_balance(player)} credits)"
             )
 
         print(f"\n{self.INFO}Total Rounds: {game_config.total_rounds}{self.RESET}")
         print(
-            f"\n{self.INFO}Total Message Cycles per round: {game_config.max_communication_cycles}{self.RESET}"
+            f"{self.INFO}Message Cycles per Round: {game_config.max_communication_cycles}{self.RESET}"
         )
 
-        # Game rules summary
-        print(f"\n{self.HEADER}🎯 Game Rules:{self.RESET}")
+        print(f"\n{self.HEADER}Game Rules:{self.RESET}")
         print(
-            f"{self.INFO}• Players can send messages and make transactions each round"
+            f"{self.INFO}- Players can send messages and make transactions each round{self.RESET}"
         )
-        print("• Transactions between players affect their credit balance")
-        print("• Bonuses are awarded for successful cooperation")
-        print("• Rankings are updated after each round")
-        print(f"• Final standings determined by total credits{self.RESET}")
+        print(f"{self.INFO}- Transactions affect credit balances{self.RESET}")
+        print(f"{self.INFO}- Bonuses are awarded for cooperation{self.RESET}")
+        print(f"{self.INFO}- Rankings are updated per round{self.RESET}")
+        print(f"{self.INFO}- Final standings by total credits{self.RESET}")
 
-        self._print_separator()
-        time.sleep(0.5)  # Add dramatic pause
+        print()
+        time.sleep(0.5)
 
     def on_round_start(self, game_state: GameState, round_number: int):
         print("\n")
-        self._print_header(f"📍 ROUND {round_number} 📍")
+        print(f"{self.HEADER}Round {round_number} Initiated{self.RESET}")
 
     def on_message_sent(
-        self, sender: LLMPlayer, recipient: Optional[LLMPlayer], message: str
+        self, sender: LLMPlayer, recipients: List[LLMPlayer], message: str
     ):
-        recipient_name = recipient.name if recipient else "(No recipient specified)"
-        print(f"{self.INFO}💬 {sender.name} → {recipient_name}: {message}{self.RESET}")
+        recipient_names = [recipient.name for recipient in recipients]
+        print(
+            f"{self.INFO}Message: {sender.name} -> {', '.join(recipient_names)}: {message}{self.RESET}"
+        )
+        time.sleep(0.5)
 
     def on_transaction_made(
         self, sender: LLMPlayer, recipient: Optional[LLMPlayer], amount: int
     ):
         if recipient is None:
             print(
-                f"{self.WARNING}💸 {sender.name} skips - no transaction sent{self.RESET}"
+                f"{self.WARNING}Transaction Skipped: {sender.name} did not send a transaction.{self.RESET}"
             )
         else:
             print(
-                f"{self.SUCCESS}💸 {sender.name} sends {amount} credits to {recipient.name}{self.RESET}"
+                f"{self.SUCCESS}Transaction: {sender.name} sent {amount} credits to {recipient.name}{self.RESET}"
             )
 
     def on_bonus_applied(self, player1: LLMPlayer, player2: LLMPlayer, bonus: int):
         print(
-            f"{self.IMPORTANT}🎁 Bonus applied between {player1.name} and {player2.name}: "
-            f"{bonus} credits{self.RESET}"
+            f"{self.IMPORTANT}Bonus Awarded: {player1.name} and {player2.name} received {bonus} credits.{self.RESET}"
         )
 
     def on_transactions_processed(
@@ -131,28 +175,28 @@ class ConsolePrinter(GameObserver):
     ):
         self._print_transaction_matrix(game_state, transactions)
 
-    def on_round_messages_end(self, messages: List[Tuple[LLMPlayer, LLMPlayer, str]]):
-        print(f"\n{self.INFO}📨 Messages phase concluded{self.RESET}")
+    def on_round_messages_end(
+        self, messages: List[Tuple[LLMPlayer, List[LLMPlayer], str]]
+    ):
+        print(f"\n{self.INFO}Message Phase Concluded.{self.RESET}")
 
     def on_round_transactions_end(
         self, transactions: Dict[LLMPlayer, Dict[LLMPlayer, int]]
     ):
-        print(f"\n{self.INFO}💰 Transactions phase concluded{self.RESET}")
+        print(f"\n{self.INFO}Transaction Phase Concluded.{self.RESET}")
 
     def on_round_end(self, game_state: GameState, round_number: int):
         self._print_rankings(game_state)
 
     def on_game_end(self, game_state: GameState):
-        self._print_header("🏁 GAME COMPLETED 🏁")
+        self._print_header("Game Completed")
 
-        # Create table data for final balances
         final_balances = [
             [player.name, game_state.get_balance(player)]
             for player in game_state.players
         ]
         final_balances.sort(key=lambda x: x[1], reverse=True)
 
-        # Add color coding to balances
         colored_balances = [
             [
                 f"{self.IMPORTANT}{name}{self.RESET}",
@@ -161,7 +205,7 @@ class ConsolePrinter(GameObserver):
             for name, balance in final_balances
         ]
 
-        print("\n📊 Final Results:")
+        print("\nFinal Results:")
         print(
             tabulate(
                 colored_balances,
@@ -181,7 +225,7 @@ class ConsolePrinter(GameObserver):
         ]
         rankings.sort(key=lambda x: x[1], reverse=True)
 
-        print(f"\n{self.HEADER}🏆 Current Rankings:{self.RESET}")
+        print("\nCurrent Rankings:")
 
         table_data = []
         for rank, (name, balance) in enumerate(rankings, 1):
@@ -213,7 +257,6 @@ class ConsolePrinter(GameObserver):
     ) -> None:
         player_names = [p.name for p in game_state.players]
 
-        # Create matrix data
         matrix_data = []
         for sender in game_state.players:
             row = []
@@ -228,19 +271,17 @@ class ConsolePrinter(GameObserver):
                         row.append(f"{Fore.RED}0{self.RESET}")
             matrix_data.append(row)
 
-        # Create headers with arrows
-        headers = [f"{self.HEADER}TO ↓{self.RESET}"] + [
+        headers = [f"{self.HEADER}TO{self.RESET}"] + [
             f"{self.HEADER}{name}{self.RESET}" for name in player_names
         ]
 
-        # Add FROM column with arrows
         matrix_data = [
-            [f"{self.HEADER}FROM {player.name} →{self.RESET}"] + row
+            [f"{self.HEADER}FROM {player.name}{self.RESET}"] + row
             for player, row in zip(game_state.players, matrix_data)
         ]
 
         print(
-            f"\n{self.IMPORTANT}📊 Transaction Matrix - Round {game_state.get_current_round()}{self.RESET}"
+            f"\n{self.IMPORTANT}Transaction Matrix - Round {game_state.get_current_round()}{self.RESET}"
         )
         print(
             tabulate(
@@ -248,7 +289,6 @@ class ConsolePrinter(GameObserver):
             )
         )
 
-        # Print summary statistics
         total_transactions = sum(
             transactions.get(sender, {}).get(recipient, 0)
             for sender in game_state.players
@@ -256,7 +296,7 @@ class ConsolePrinter(GameObserver):
             if sender != recipient
         )
 
-        print(f"\n{self.HEADER}📈 Round Summary:{self.RESET}")
+        print(f"\n{self.HEADER}Round Summary:{self.RESET}")
         summary_data = [
             [
                 "Total Transactions",
