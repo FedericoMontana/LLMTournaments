@@ -1,12 +1,12 @@
 # credit_exchanges_game.py
-from typing import Optional, Set, Dict, List, Tuple
+from typing import Dict, List, Tuple, Union
 from llmtournaments.games.credit_exchanges.base_objects import (
     LLMPlayer,
     GameConfig,
     GameRound,
     GameState,
 )
-from llmtournaments.games.credit_exchanges.observers import GameObserver
+from llmtournaments.games.credit_exchanges.observers import Observable
 import logging
 import random
 import json
@@ -21,115 +21,115 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class JsonValidator:
-    @staticmethod
-    def clean_and_load_json(input_text):
-        sanitized_text = input_text.replace('\\"', '"').replace("\\'", "'")
-        sanitized_text = re.sub(
-            r"\$ntr]", " ", sanitized_text
-        )  # Replaces \n, \t, \r with spaces
-        sanitized_text = sanitized_text.replace("\\\\", "\\")  # Single backslash
+# --------------------------------------------------------------------------
+# JSON Cleaning and Loading
+# --------------------------------------------------------------------------
+def clean_and_load_json(input_text: str) -> dict:
+    """
+    Cleans up a given input_text by removing unwanted escape characters,
+    extracts the first valid JSON object, and returns it as a dict.
+    Raises ValueError if JSON cannot be successfully loaded.
+    """
+    # Clean up unwanted escape characters
+    sanitized_text = input_text.replace('\\"', '"').replace("\\'", "'")
+    sanitized_text = re.sub(
+        r"\$ntr]", " ", sanitized_text
+    )  # Replaces \n, \t, \r with spaces
+    sanitized_text = sanitized_text.replace("\\\\", "\\")  # Single backslash
 
-        # Step 2: Extract JSON content between first `{` and last `}` using DOTALL for multiline matching
-        json_content = re.search(r"\{.*?\}", sanitized_text, re.DOTALL)
-        if json_content:
-            json_text = json_content.group(0)
-        else:
-            logger.error(
-                f"No JSON content found in the input string. Got: {input_text}"
-            )
+    # Extract JSON content between the first '{' and the last '}' (multiline)
+    json_content = re.search(r"\{.*?\}", sanitized_text, re.DOTALL)
+    if not json_content:
+        raise ValueError(f"No curls found, expected for the JSON: {input_text}")
 
-        # Step 3: Attempt to load JSON
+    json_text = json_content.group(0)
 
+    # Attempt to parse the JSON content
+    try:
         return json.loads(json_text)
-
-    @staticmethod
-    def validate_transactions(
-        json_str: str, sender_name: str, valid_players: Set[str]
-    ) -> Dict[str, int]:
-        try:
-            data = JsonValidator.clean_and_load_json(json_str)
-
-            if not isinstance(data, dict):
-                logger.warning(f"Invalid transaction format from {sender_name}: {data}")
-                return {}
-
-            for recipient, amount in data.items():
-                if recipient not in valid_players:
-                    logger.warning(f"Invalid recipient from {sender_name}: {recipient}")
-                    return {}
-                if recipient == sender_name:
-                    logger.warning(f"Self-transaction from {sender_name}")
-                    return {}
-                if not isinstance(amount, int) or amount < 0:
-                    logger.warning(f"Invalid amount from {sender_name}: {amount}")
-                    return {}
-
-            return data
-
-        except Exception as e:
-            logger.warning(
-                f"Invalid JSON from {sender_name}, got: {json_str}. Error: {str(e)}"
-            )
-            return {}
-
-    @staticmethod
-    def validate_message(
-        json_str: str, sender_name: str, valid_players: Set[str]
-    ) -> Tuple[Optional[str], Optional[str]]:
-        try:
-            data = JsonValidator.clean_and_load_json(json_str)
-            if not isinstance(data, dict):
-                logger.warning(f"Invalid message format from {sender_name}: {data}")
-                return None, None
-
-            recipient = data.get("recipient")
-            message = data.get("message")
-            if not all(
-                [
-                    isinstance(recipient, str),
-                    isinstance(message, str),
-                    recipient in valid_players,
-                    recipient != sender_name,
-                    message.strip(),
-                ]
-            ):
-                logger.warning(f"Invalid message data from {sender_name}")
-                return None, None
-
-            return recipient, message.strip()
-
-        except Exception as e:
-            logger.warning(
-                f"Invalid JSON from {sender_name}, got: {json_str}. Error: {str(e)}"
-            )
-            return {}
+    except json.JSONDecodeError as e:
+        raise ValueError(f"JSON parsing error: {e}")
 
 
-class CreditExchangeGame:
+class CreditExchangeGame(Observable):
+    """
+    Main game class that manages players, processes rounds,
+    and handles validations for transactions/messages based on game rules.
+    """
+
     def __init__(self, players: List[LLMPlayer], config: GameConfig):
+        super().__init__()
         self.game_state = GameState(players, config.initial_balance)
         self.game_config = config
         self.prompt_manager = PromptManager(self.game_config)
-        self.observers: List[GameObserver] = []
 
         for player in players:
             player.llm.set_system_prompt(
                 self.prompt_manager.create_system_prompt(player.name)
             )
 
-    def add_observer(self, observer: GameObserver):
-        self.observers.append(observer)
+    def _validate_and_format_payload(
+        self, raw_text: str, sender: LLMPlayer, payload_type: str
+    ) -> Union[Dict[LLMPlayer, int], Tuple[LLMPlayer, str]]:
+        """
+        1) Parses the JSON from raw_text.
+        2) Validates the data for either "message" or "transaction".
+        3) Returns the validated payload.
 
-    def remove_observer(self, observer: GameObserver):
-        self.observers.remove(observer)
+        For "message": returns (recipient_player, message_text).
+        - Recipients must exist, not be the sender, and message must be non-empty.
 
-    def notify_observers(self, method_name: str, *args, **kwargs):
-        for observer in self.observers:
-            method = getattr(observer, method_name, None)
-            if callable(method):
-                method(*args, **kwargs)
+        For "transaction": returns {recipient_player: amount, ...}.
+        - Recipients must exist, not be the sender, and amounts must be non-negative.
 
+        Raises ValueError on any invalid JSON or violation of game rules.
+        """
+
+        def _validate_and_get_recipient_player(
+            recipient_name: str, sender_player: LLMPlayer
+        ) -> LLMPlayer:
+            recipient_player = self.game_state.get_player_by_name(recipient_name)
+            if not recipient_player:
+                raise ValueError(f"Recipient does not exist: {recipient_name}")
+            if recipient_player == sender_player:
+                raise ValueError("Player trying to interact with itself")
+            return recipient_player
+
+        data = clean_and_load_json(raw_text)
+
+        if payload_type == "message":
+            recipient_name = data.get("recipient")
+            message_value = data.get("message")
+
+            recipient_player = _validate_and_get_recipient_player(
+                recipient_name, sender
+            )
+            if not message_value.strip():
+                raise ValueError("Message cannot be empty.")
+
+            return (recipient_player, message_value.strip())
+
+        elif payload_type == "transaction":
+            validated_tx: Dict[LLMPlayer, int] = {}
+            for recipient_name, amount in data.items():
+                recipient_player = _validate_and_get_recipient_player(
+                    recipient_name, sender
+                )
+                if not isinstance(amount, int) or amount < 0:
+                    raise ValueError(
+                        f"Invalid transaction amount for {recipient_name}: {amount}"
+                    )
+
+                validated_tx[recipient_player] = amount
+
+            return validated_tx
+
+        else:
+            raise ValueError(f"Unknown payload_type: {payload_type}")
+
+    # --------------------------------------------------------------------------
+    # Messaging Phase
+    # --------------------------------------------------------------------------
     def _conduct_messaging_phase(self) -> List[Tuple[LLMPlayer, LLMPlayer, str]]:
         ongoing_round_messages = []
 
@@ -143,103 +143,124 @@ class CreditExchangeGame:
                 prompt = self.prompt_manager.generate_messaging_prompt(
                     player, self.game_state, ongoing_round_messages, remaining_messages
                 )
-                print(prompt)
-                if player.name == "B":
-                    print("\n------Message B -----")
-                    print("++++")
-                    print(ongoing_round_messages)
-                    print("++++")
-                    print(prompt)
-                    print("---------------------------")
 
-                response = player.llm(prompt).response
-                recipient_player, message = None, response  # default for "SKIP" cases
+                # Debug print for Player B
+                # if player.name == "B":
+                #     print("\n------Message B -----")
+                #     print(prompt)
+                #     print("---------------------------")
 
-                if response.strip().upper() != "SKIP":
-                    recipient_name, message = JsonValidator.validate_message(
-                        response, player.name, {p.name for p in self.game_state.players}
+                response_text = player.llm(prompt).response.strip()
+
+                if response_text.upper() == "SKIP":
+                    # No message
+                    self.notify_observers("on_message_sent", player, None, None)
+                    continue
+
+                try:
+                    recipient_player, message_text = self._validate_and_format_payload(
+                        response_text, player, "message"
                     )
-                    if recipient_name and message:
-                        recipient_player = self.game_state.get_player_by_name(
-                            recipient_name
-                        )
-                        ongoing_round_messages.append(
-                            (player, recipient_player, message)
-                        )
+                    ongoing_round_messages.append(
+                        (player, recipient_player, message_text)
+                    )
+                    self.notify_observers(
+                        "on_message_sent", player, recipient_player, message_text
+                    )
 
-                # Notify observer once for each player iteration, with necessary details
-                self.notify_observers(
-                    "on_message_sent", player, recipient_player, message
-                )
+                except ValueError as e:
+                    logger.error(
+                        f"Message error from {player.name}: {str(e)}. Got: {response_text}"
+                    )
 
-        # Notify observers at the end of all cycles
+        # Notify observers at the end of the messaging phase
         self.notify_observers("on_round_messages_end", ongoing_round_messages)
         return ongoing_round_messages
 
+    # --------------------------------------------------------------------------
+    # Transaction Phase
+    # --------------------------------------------------------------------------
     def _conduct_transaction_phase(
         self, ongoing_round_messages: List[Tuple[LLMPlayer, LLMPlayer, str]]
     ) -> Dict[LLMPlayer, Dict[LLMPlayer, int]]:
         transactions = {}
 
         for player in self.game_state.players:
-            transactions[player] = {}  # Initialize empty transactions for player
+            transactions[player] = {}
             current_balance = self.game_state.get_balance(player)
 
             prompt = self.prompt_manager.generate_transaction_prompt(
                 player, self.game_state, ongoing_round_messages
             )
+            # if player.name == "B":
+            #     print("\n------Transaction B -----")
+            #     print(prompt)
+            #     print("---------------------------")
 
-            if player.name == "B":
-                print("\n------Transaction B -----")
-                print(prompt)
-                print("---------------------------")
+            response_text = player.llm(prompt).response.strip()
 
-            response = player.llm(prompt).response
-
-            if response.strip().upper() == "SKIP":
+            if response_text.upper() == "SKIP":
                 self.notify_observers("on_transaction_made", player, None, None)
                 continue
 
-            player_transactions = JsonValidator.validate_transactions(
-                response, player.name, {p.name for p in self.game_state.players}
-            )
-
-            # Check if total transactions exceed current balance
-            total_amount = sum(player_transactions.values())
-            if total_amount > current_balance:
-                logger.error(
-                    f"Transaction rejected: {player.name} attempted to send {total_amount} "
-                    f"credits but only has {current_balance}"
+            try:
+                payload = self._validate_and_format_payload(
+                    response_text, player, "transaction"
                 )
-                continue
 
-            for recipient_name, amount in player_transactions.items():
-                recipient = self.game_state.get_player_by_name(recipient_name)
-                transactions[player][recipient] = amount
-                self.notify_observers("on_transaction_made", player, recipient, amount)
+                total_amount = sum(payload.values())
+                if total_amount > current_balance:
+                    logger.error(
+                        f"Transaction rejected: {player.name} tried to send {total_amount}, "
+                        f"but only has {current_balance}"
+                    )
+                    continue
+
+                for recipient_player, amount in payload.items():
+                    transactions[player][recipient_player] = amount
+                    self.notify_observers(
+                        "on_transaction_made", player, recipient_player, amount
+                    )
+
+            except ValueError as e:
+                logger.error(
+                    f"Transaction error from {player.name}: {str(e)}. Got: {response_text}"
+                )
 
         self.notify_observers("on_round_transactions_end", transactions)
         return transactions
 
+    # --------------------------------------------------------------------------
+    # Transaction Processing & Bonuses
+    # --------------------------------------------------------------------------
     def _process_transactions(
         self, transactions: Dict[LLMPlayer, Dict[LLMPlayer, int]]
     ) -> None:
-        for sender, recipients in transactions.items():
-            total_sent = sum(recipients.values())
+        """
+        Deducts the total sent credits from each sender, adds to each recipient,
+        then processes any bonus credits.
+        """
+        # Deduct from senders
+        for sender, recipients_dict in transactions.items():
+            total_sent = sum(recipients_dict.values())
             self.game_state.update_balance(sender, -total_sent)
 
-            for recipient, amount in recipients.items():
+            # Add to recipients
+            for recipient, amount in recipients_dict.items():
                 self.game_state.update_balance(recipient, amount)
 
+        # Process bonuses (where players transact with each other)
         self._process_bonuses(transactions)
 
     def _process_bonuses(
         self, transactions: Dict[LLMPlayer, Dict[LLMPlayer, int]]
     ) -> None:
+        """
+        If two players exchange X credits in both directions, they both get X bonus credits.
+        """
         for p1, p2 in combinations(self.game_state.players, 2):
             sent = transactions.get(p1, {}).get(p2, 0)
             received = transactions.get(p2, {}).get(p1, 0)
-
             bonus = min(sent, received)
 
             if bonus > 0:
@@ -247,7 +268,18 @@ class CreditExchangeGame:
                 self.game_state.update_balance(p2, bonus)
                 self.notify_observers("on_bonus_applied", p1, p2, bonus)
 
+    # --------------------------------------------------------------------------
+    # Orchestration
+    # --------------------------------------------------------------------------
     def _conduct_round(self) -> None:
+        """
+        Conducts one full round of the game:
+        1) Increment round number
+        2) Conduct messaging phase
+        3) Conduct transaction phase
+        4) Process transactions
+        5) Record round results
+        """
         self.game_state.increment_round()
         round_number = self.game_state.get_current_round()
         self.notify_observers("on_round_start", self.game_state, round_number)
@@ -271,6 +303,10 @@ class CreditExchangeGame:
         self.notify_observers("on_round_end", self.game_state, round_number)
 
     def run_game(self) -> Dict[str, int]:
+        """
+        Runs the full game according to the total number of rounds.
+        Returns final player balances.
+        """
         self.notify_observers("on_game_start", self.game_config, self.game_state)
 
         for _ in range(self.game_config.total_rounds):
@@ -282,5 +318,4 @@ class CreditExchangeGame:
         }
 
         self.notify_observers("on_game_end", self.game_state)
-
         return final_balances

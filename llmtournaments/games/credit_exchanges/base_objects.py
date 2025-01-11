@@ -1,3 +1,4 @@
+# base_objects.py
 from dataclasses import dataclass
 from llmtournaments.llm.llm_interaction_base import LLMInteractionBase
 from typing import Optional, Dict, List, Tuple

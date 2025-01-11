@@ -1,3 +1,4 @@
+# observers.py
 from llmtournaments.games.credit_exchanges.base_objects import (
     LLMPlayer,
     GameState,
@@ -8,9 +9,50 @@ from tabulate import tabulate
 from colorama import Fore, Style
 import colorama
 import time
+from abc import ABC, abstractmethod
 
 
-class GameObserver:
+class BaseObserver(ABC):
+    """Abstract base class for all game observers"""
+
+    @abstractmethod
+    def update(self, event_type: str, *args, **kwargs):
+        """Main update method that all observers must implement"""
+        pass
+
+
+class Observable:
+    """Mixin class to provide observer functionality"""
+
+    def __init__(self):
+        self._observers = []
+
+    def add_observer(self, observer: BaseObserver):
+        if observer not in self._observers:
+            self._observers.append(observer)
+
+    def remove_observer(self, observer: BaseObserver):
+        if observer in self._observers:
+            self._observers.remove(observer)
+
+    def notify_observers(self, event_type: str, *args, **kwargs):
+        for observer in self._observers:
+            observer.update(event_type, *args, **kwargs)
+
+
+class GameObserver(BaseObserver):
+    """Concrete implementation of game observer with default behaviors"""
+
+    def update(self, event_type: str, *args, **kwargs):
+        """Routes events to appropriate handler methods"""
+        handler = getattr(self, f"{event_type}", None)
+        if handler and callable(handler):
+            handler(*args, **kwargs)
+        else:
+            raise ValueError(
+                f"No handler found for event type '{event_type}' in {self.__class__.__name__}"
+            )
+
     def on_game_start(self, game_config: GameConfig, game_state: GameState):
         pass
 
